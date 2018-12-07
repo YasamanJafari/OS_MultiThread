@@ -60,6 +60,10 @@ Hidden_Node hidden_nodes[NUMBER_OF_HIDDEN_CELLS];
 Output_Node output_nodes[NUMBER_OF_OUTPUT_CELLS];
 
 void* readImage(void*);
+void createInputThreadAndSemaphores(pthread_t threadID);
+void createHiddenThreadAndSemaphores(pthread_t threadID);
+void createOutputThreadAndSemaphores(pthread_t threadID);
+void createDisplayThreadAndSemaphores(pthread_t threadID);
 
 sem_t input_mutex, hidden_mutex, hidden_progress_mutex, sum_mutex, sum_progress_mutex, display_mutex, input_display_mutex, output_display_mutex;
 
@@ -71,8 +75,6 @@ sem_t input_mutex, hidden_mutex, hidden_progress_mutex, sum_mutex, sum_progress_
 struct MNIST_Image{
     uint8_t pixel[28*28];
 };
-
-MNIST_Image img;
 
 /**
  * @brief Data block defining a MNIST image file header
@@ -101,6 +103,9 @@ struct MNIST_LabelFileHeader{
     uint32_t magicNumber;
     uint32_t maxImages;
 };
+
+vector <pthread_t> threadIDs;
+MNIST_Image img;
 
 /**
  * @details Set cursor position to given coordinates in the terminal window
@@ -494,32 +499,43 @@ void* display(void*){
  * 10k images.
  */
 
-void testNN(){
-
-    vector <pthread_t> threadIDs;
-    pthread_t threadID;
-    // screen output for monitoring progress
-    displayImageFrame(7,5);
-
+void createInputThreadAndSemaphores(pthread_t threadID){
     pthread_create(&threadID, NULL, readImage, NULL);
     threadIDs.push_back(threadID);
     sem_init(&input_mutex, 0, 1); 
     sem_init(&input_display_mutex, 0, 1);
+}
 
+void createHiddenThreadAndSemaphores(pthread_t threadID){
     pthread_create(&threadID, NULL, process, NULL); 
     threadIDs.push_back(threadID);
     sem_init(&hidden_mutex, 0, 0);
     sem_init(&hidden_progress_mutex, 0, 1);
+}
 
+void createOutputThreadAndSemaphores(pthread_t threadID){
     pthread_create(&threadID, NULL, sum_result, NULL);
     threadIDs.push_back(threadID);
     sem_init(&sum_mutex, 0, 0);
     sem_init(&sum_progress_mutex, 0, 1);
+}
 
+void createDisplayThreadAndSemaphores(pthread_t threadID){
     pthread_create(&threadID, NULL, display, NULL);
     threadIDs.push_back(threadID);
     sem_init(&display_mutex, 0, 0);
     sem_init(&output_display_mutex, 0, 0);
+}
+
+void testNN(){
+    pthread_t threadID;
+    // screen output for monitoring progress
+    displayImageFrame(7,5);
+
+    createInputThreadAndSemaphores(threadID);
+    createHiddenThreadAndSemaphores(threadID);
+    createOutputThreadAndSemaphores(threadID);
+    createDisplayThreadAndSemaphores(threadID);
 
     for(int i = 0; i < threadIDs.size(); i++)
     {
