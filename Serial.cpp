@@ -60,12 +60,17 @@ Hidden_Node hidden_nodes[NUMBER_OF_HIDDEN_CELLS];
 Output_Node output_nodes[NUMBER_OF_OUTPUT_CELLS];
 
 void* readImage(void*);
-void createInputThreadAndSemaphores(pthread_t threadID);
-void createHiddenThreadAndSemaphores(pthread_t threadID);
-void createOutputThreadAndSemaphores(pthread_t threadID);
-void createDisplayThreadAndSemaphores(pthread_t threadID);
+void* display(void*);
+void* sum_result(void*);
+void* process(void*);
+void createInputThreadAndSemaphores();
+void createHiddenThreadAndSemaphores();
+void createOutputThreadAndSemaphores();
+void createDisplayThreadAndSemaphores();
 
 sem_t input_mutex, hidden_mutex, hidden_progress_mutex, sum_mutex, sum_progress_mutex, display_mutex, input_display_mutex, output_display_mutex;
+vector <sem_t> inside_hidden_semaphores;
+vector <sem_t> inside_output_semaphores;
 
 /**
  * @brief Data block defining a MNIST image
@@ -499,28 +504,42 @@ void* display(void*){
  * 10k images.
  */
 
-void createInputThreadAndSemaphores(pthread_t threadID){
+void createInputThreadAndSemaphores(){
+    pthread_t threadID;
     pthread_create(&threadID, NULL, readImage, NULL);
     threadIDs.push_back(threadID);
     sem_init(&input_mutex, 0, 1); 
     sem_init(&input_display_mutex, 0, 1);
 }
 
-void createHiddenThreadAndSemaphores(pthread_t threadID){
-    pthread_create(&threadID, NULL, process, NULL); 
-    threadIDs.push_back(threadID);
+void createHiddenThreadAndSemaphores(){
+    pthread_t threadID;
+    for(int i = 0; i < 8; i++)
+    {
+        pthread_create(&threadID, NULL, process, NULL); 
+        threadIDs.push_back(threadID);        
+    }
+    pthread_create(&threadID, NULL, sum_result, NULL); 
+    threadIDs.push_back(threadID); 
     sem_init(&hidden_mutex, 0, 0);
     sem_init(&hidden_progress_mutex, 0, 1);
 }
 
-void createOutputThreadAndSemaphores(pthread_t threadID){
-    pthread_create(&threadID, NULL, sum_result, NULL);
-    threadIDs.push_back(threadID);
+void createOutputThreadAndSemaphores(){
+    pthread_t threadID;
+    for(int i = 0; i < 10; i++)
+    {
+        pthread_create(&threadID, NULL, sum_result, NULL); 
+        threadIDs.push_back(threadID);        
+    }
+    pthread_create(&threadID, NULL, sum_result, NULL); 
+    threadIDs.push_back(threadID);   
     sem_init(&sum_mutex, 0, 0);
     sem_init(&sum_progress_mutex, 0, 1);
 }
 
-void createDisplayThreadAndSemaphores(pthread_t threadID){
+void createDisplayThreadAndSemaphores(){
+    pthread_t threadID;
     pthread_create(&threadID, NULL, display, NULL);
     threadIDs.push_back(threadID);
     sem_init(&display_mutex, 0, 0);
@@ -528,14 +547,13 @@ void createDisplayThreadAndSemaphores(pthread_t threadID){
 }
 
 void testNN(){
-    pthread_t threadID;
     // screen output for monitoring progress
     displayImageFrame(7,5);
 
-    createInputThreadAndSemaphores(threadID);
-    createHiddenThreadAndSemaphores(threadID);
-    createOutputThreadAndSemaphores(threadID);
-    createDisplayThreadAndSemaphores(threadID);
+    createInputThreadAndSemaphores();
+    createHiddenThreadAndSemaphores();
+    createOutputThreadAndSemaphores();
+    createDisplayThreadAndSemaphores();
 
     for(int i = 0; i < threadIDs.size(); i++)
     {
