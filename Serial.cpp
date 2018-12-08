@@ -68,9 +68,8 @@ void createHiddenThreadAndSemaphores();
 void createOutputThreadAndSemaphores();
 void createDisplayThreadAndSemaphores();
 
-sem_t input_mutex, hidden_progress_mutex, sum_mutex, sum_progress_mutex, display_mutex, input_display_mutex, output_display_mutex;
+sem_t input_mutex, hidden_mutex, hidden_progress_mutex, sum_mutex, sum_progress_mutex, display_mutex, input_display_mutex, output_display_mutex;
 sem_t inside_hidden_semaphores[8];
-sem_t hidden_mutex[8];
 sem_t inside_output_semaphores[10];
 
 /**
@@ -432,7 +431,7 @@ void* readImage(void*){
         img = getImage(imageFile);
 
         for(int i = 0; i < hidden_thread_count; i++){
-            sem_post(&hidden_mutex[i]);
+            sem_post(&hidden_mutex);
         }
         displayImage(&img, 8,6);
         sem_post(&output_display_mutex);
@@ -443,10 +442,11 @@ void* readImage(void*){
 }
 
 void* process(void* count){
+
     for (int imgCount=0; imgCount<MNIST_MAX_TESTING_IMAGES; imgCount++){
         for(int i = 0; i < 10; i++)
             sem_wait(&inside_hidden_semaphores[*(int *)count]);
-        sem_wait(&hidden_mutex[*(int *)count]);
+        sem_wait(&hidden_mutex);
         for (int j = (*(int *)count) * 32; j < (*(int *)count + 1) * 32; j++) {
             hidden_nodes[j].output = 0;
             for (int z = 0; z < NUMBER_OF_INPUT_CELLS; z++) {
@@ -530,9 +530,9 @@ void createHiddenThreadAndSemaphores(){
         count[i] = i;
         pthread_create(&threadID, NULL, process, (void *)(count+i)); 
         threadIDs.push_back(threadID);  
-        sem_init(&inside_hidden_semaphores[i], 0, 10);   
-        sem_init(&hidden_mutex[i], 0, 0);   
+        sem_init(&inside_hidden_semaphores[i], 0, 10);      
     }
+    sem_init(&hidden_mutex, 0, 0);
 }
 
 void createOutputThreadAndSemaphores(){
