@@ -69,8 +69,9 @@ void createOutputThreadAndSemaphores();
 void createDisplayThreadAndSemaphores();
 
 sem_t input_mutex, hidden_mutex, hidden_progress_mutex, sum_mutex, sum_progress_mutex, display_mutex, input_display_mutex, output_display_mutex;
-sem_t inside_hidden_semaphores[8];
+sem_t* inside_hidden_semaphores;
 sem_t inside_output_semaphores[10];
+pthread_t threadID;
 
 /**
  * @brief Data block defining a MNIST image
@@ -111,7 +112,7 @@ struct MNIST_LabelFileHeader{
 
 vector <pthread_t> threadIDs;
 MNIST_Image img;
-int hidden_thread_count = 8;
+int hidden_thread_count;
 
 /**
  * @details Set cursor position to given coordinates in the terminal window
@@ -426,9 +427,9 @@ void* readImage(void*){
         for(int i = 0; i < hidden_thread_count; i++){
             sem_wait(&input_mutex);
         }
+        img = getImage(imageFile);
         sem_wait(&input_display_mutex);
         displayLoadingProgressTesting(imgCount,5,5);
-        img = getImage(imageFile);
 
         for(int i = 0; i < hidden_thread_count; i++){
             sem_post(&hidden_mutex);
@@ -446,7 +447,7 @@ void* process(void* count){
         for(int i = 0; i < 10; i++)
             sem_wait(&inside_hidden_semaphores[*(int *)count]);
         sem_wait(&hidden_mutex);
-        for (int j = (*(int *)count) * 32; j < (*(int *)count + 1) * 32; j++) {
+        for (int j = (*(int *)count) * (NUMBER_OF_HIDDEN_CELLS/hidden_thread_count); j < (*(int *)count + 1) * (NUMBER_OF_HIDDEN_CELLS/hidden_thread_count); j++) {
             hidden_nodes[j].output = 0;
             for (int z = 0; z < NUMBER_OF_INPUT_CELLS; z++) {
                 hidden_nodes[j].output += img.pixel[z] * hidden_nodes[j].weights[z];
@@ -518,6 +519,7 @@ void createSemaphores(){
     sem_init(&sum_progress_mutex, 0, 10); 
     sem_init(&display_mutex, 0, 0);
     sem_init(&output_display_mutex, 0, 0);
+    inside_hidden_semaphores = (sem_t*)malloc(hidden_thread_count * sizeof(sem_t));
     for(int i = 0; i < hidden_thread_count; i++)
         sem_init(&inside_hidden_semaphores[i], 0, 10);  
     for(int i = 0; i < 10; i++)
@@ -525,13 +527,11 @@ void createSemaphores(){
 }
 
 void createInputThreadAndSemaphores(){
-    pthread_t threadID;
     pthread_create(&threadID, NULL, readImage, NULL);
     threadIDs.push_back(threadID);
 }
 
 void createHiddenThreadAndSemaphores(){
-    pthread_t threadID;
     int* count = (int*)malloc(sizeof(int) * hidden_thread_count);
     for(int i = 0; i < hidden_thread_count; i++)
     {
@@ -542,7 +542,6 @@ void createHiddenThreadAndSemaphores(){
 }
 
 void createOutputThreadAndSemaphores(){
-    pthread_t threadID;
     int* count = (int*)malloc(sizeof(int) * 10);
     for(int i = 0; i < 10; i++)
     {
@@ -553,12 +552,13 @@ void createOutputThreadAndSemaphores(){
 }
 
 void createDisplayThreadAndSemaphores(){
-    pthread_t threadID;
     pthread_create(&threadID, NULL, display, NULL);
     threadIDs.push_back(threadID);
 }
 
 void testNN(){
+    cout << endl << endl << "   *** Enter the desired number of hidden threads. ***" << endl;
+    cin >> hidden_thread_count;
     // screen output for monitoring progress
     displayImageFrame(7,5);
 
