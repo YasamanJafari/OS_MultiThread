@@ -424,7 +424,6 @@ void* readImage(void*){
     FILE *imageFile; 
     imageFile = openMNISTImageFile((char*)MNIST_TESTING_SET_IMAGE_FILE_NAME);
     for (int imgCount=0; imgCount<MNIST_MAX_TESTING_IMAGES; imgCount++){
-            // cerr << endl << 1 << endl;
         for(int i = 0; i < hidden_thread_count; i++){
             sem_wait(&input_mutex);
         }
@@ -435,7 +434,6 @@ void* readImage(void*){
         for(int i = 0; i < hidden_thread_count; i++){
             sem_post(&hidden_mutex[i]);
         }
-        // cerr << endl << 2 << endl;
         displayImage(&img, 8,6);
         sem_post(&output_display_mutex);
     }
@@ -445,13 +443,10 @@ void* readImage(void*){
 }
 
 void* process(void* count){
-
     for (int imgCount=0; imgCount<MNIST_MAX_TESTING_IMAGES; imgCount++){
-        // cerr << endl << 3 << " " << *(int *)count << endl;
-        // cerr << "   @!#!@#! " <<  *(int *)count << endl;
-        sem_wait(&hidden_mutex[*(int *)count]);
         for(int i = 0; i < 10; i++)
             sem_wait(&inside_hidden_semaphores[*(int *)count]);
+        sem_wait(&hidden_mutex[*(int *)count]);
         for (int j = (*(int *)count) * 32; j < (*(int *)count + 1) * 32; j++) {
             hidden_nodes[j].output = 0;
             for (int z = 0; z < NUMBER_OF_INPUT_CELLS; z++) {
@@ -463,15 +458,12 @@ void* process(void* count){
         for(int i = 0; i < 10; i++)
             sem_post(&inside_output_semaphores[i]);
         sem_post(&input_mutex);
-        // cerr << endl <<"* " << *(int *)count << endl;
-        // cerr << endl << 4 << endl;
     }
     return NULL; 
 }
 
 void* sum_result(void* count){
     for (int imgCount=0; imgCount<MNIST_MAX_TESTING_IMAGES; imgCount++){
-            // cerr << endl << 5 << endl;
         sem_wait(&sum_progress_mutex);
         for(int k = 0; k < hidden_thread_count; k++)
             sem_wait(&inside_output_semaphores[*(int*)count]);
@@ -485,7 +477,6 @@ void* sum_result(void* count){
         for(int k = 0; k < hidden_thread_count; k++)
             sem_post(&inside_hidden_semaphores[k]);
         sem_post(&display_mutex);
-            // cerr << endl << 6 << endl;
     }
     return NULL; 
 }
@@ -498,7 +489,6 @@ void* display(void*){
     labelFile = openMNISTLabelFile((char*)MNIST_TESTING_SET_LABEL_FILE_NAME);
 
     for (int imgCount=0; imgCount<MNIST_MAX_TESTING_IMAGES; imgCount++){
-        // cerr << endl << 7 << endl;
         for(int i = 0; i < 10; i++)
             sem_wait(&display_mutex);
         sem_wait(&output_display_mutex);
@@ -513,7 +503,6 @@ void* display(void*){
         sem_post(&input_display_mutex);
         for(int k = 0; k < 10; k++)
             sem_post(&sum_progress_mutex);
-        // cerr << endl << 8 << endl;
     }
     // Close file
     fclose(labelFile);
