@@ -427,7 +427,6 @@ void* readImage(void*){
         for(int i = 0; i < hidden_thread_count; i++){
             sem_wait(&input_mutex);
         }
-                        cerr << endl << "PASS" << endl;
         sem_wait(&input_display_mutex);
         displayLoadingProgressTesting(imgCount,5,5);
         img = getImage(imageFile);
@@ -485,7 +484,7 @@ void* sum_result(void* count){
         for(int k = 0; k < hidden_thread_count; k++)
             sem_post(&inside_hidden_semaphores[k]);
         sem_post(&display_mutex);
-            cerr << endl << 6 << endl;
+            // cerr << endl << 6 << endl;
     }
     return NULL; 
 }
@@ -498,7 +497,7 @@ void* display(void*){
     labelFile = openMNISTLabelFile((char*)MNIST_TESTING_SET_LABEL_FILE_NAME);
 
     for (int imgCount=0; imgCount<MNIST_MAX_TESTING_IMAGES; imgCount++){
-            cerr << endl << 7 << endl;
+        // cerr << endl << 7 << endl;
         for(int i = 0; i < 10; i++)
             sem_wait(&display_mutex);
         sem_wait(&output_display_mutex);
@@ -513,7 +512,7 @@ void* display(void*){
         sem_post(&input_display_mutex);
         for(int k = 0; k < 10; k++)
             sem_post(&sum_progress_mutex);
-                cerr << endl << 8 << endl;
+        // cerr << endl << 8 << endl;
     }
     // Close file
     fclose(labelFile);
