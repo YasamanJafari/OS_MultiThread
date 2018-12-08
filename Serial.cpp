@@ -442,7 +442,6 @@ void* readImage(void*){
 }
 
 void* process(void* count){
-
     for (int imgCount=0; imgCount<MNIST_MAX_TESTING_IMAGES; imgCount++){
         for(int i = 0; i < 10; i++)
             sem_wait(&inside_hidden_semaphores[*(int *)count]);
@@ -464,16 +463,14 @@ void* process(void* count){
 
 void* sum_result(void* count){
     for (int imgCount=0; imgCount<MNIST_MAX_TESTING_IMAGES; imgCount++){
-        sem_wait(&sum_progress_mutex);
         for(int k = 0; k < hidden_thread_count; k++)
             sem_wait(&inside_output_semaphores[*(int*)count]);
-        for (int i= 0; i < NUMBER_OF_OUTPUT_CELLS; i++){
-            output_nodes[i].output = 0;
-            for (int j = 0; j < NUMBER_OF_HIDDEN_CELLS; j++) {
-                output_nodes[i].output += hidden_nodes[j].output * output_nodes[i].weights[j];
-            }
-            output_nodes[i].output += 1/(1+ exp(-1* output_nodes[i].output));
+        sem_wait(&sum_progress_mutex);
+        output_nodes[*(int*)count].output = 0;
+        for (int j = 0; j < NUMBER_OF_HIDDEN_CELLS; j++) {
+            output_nodes[*(int*)count].output += hidden_nodes[j].output * output_nodes[*(int*)count].weights[j];
         }
+        output_nodes[*(int*)count].output += 1/(1+ exp(-1* output_nodes[*(int*)count].output));
         for(int k = 0; k < hidden_thread_count; k++)
             sem_post(&inside_hidden_semaphores[k]);
         sem_post(&display_mutex);
@@ -514,12 +511,23 @@ void* display(void*){
  * 10k images.
  */
 
+void createSemaphores(){
+    sem_init(&input_mutex, 0, hidden_thread_count); 
+    sem_init(&input_display_mutex, 0, 1);
+    sem_init(&hidden_mutex, 0, 0);
+    sem_init(&sum_progress_mutex, 0, 10); 
+    sem_init(&display_mutex, 0, 0);
+    sem_init(&output_display_mutex, 0, 0);
+    for(int i = 0; i < hidden_thread_count; i++)
+        sem_init(&inside_hidden_semaphores[i], 0, 10);  
+    for(int i = 0; i < 10; i++)
+        sem_init(&inside_output_semaphores[i], 0, 0);            
+}
+
 void createInputThreadAndSemaphores(){
     pthread_t threadID;
     pthread_create(&threadID, NULL, readImage, NULL);
     threadIDs.push_back(threadID);
-    sem_init(&input_mutex, 0, hidden_thread_count); 
-    sem_init(&input_display_mutex, 0, 1);
 }
 
 void createHiddenThreadAndSemaphores(){
@@ -529,10 +537,8 @@ void createHiddenThreadAndSemaphores(){
     {
         count[i] = i;
         pthread_create(&threadID, NULL, process, (void *)(count+i)); 
-        threadIDs.push_back(threadID);  
-        sem_init(&inside_hidden_semaphores[i], 0, 10);      
+        threadIDs.push_back(threadID);    
     }
-    sem_init(&hidden_mutex, 0, 0);
 }
 
 void createOutputThreadAndSemaphores(){
@@ -542,24 +548,21 @@ void createOutputThreadAndSemaphores(){
     {
         count[i] = i;
         pthread_create(&threadID, NULL, sum_result, (void *)(count+i)); 
-        threadIDs.push_back(threadID); 
-        sem_init(&inside_output_semaphores[i], 0, 8);        
+        threadIDs.push_back(threadID);         
     }   
-    sem_init(&sum_progress_mutex, 0, 10);
 }
 
 void createDisplayThreadAndSemaphores(){
     pthread_t threadID;
     pthread_create(&threadID, NULL, display, NULL);
     threadIDs.push_back(threadID);
-    sem_init(&display_mutex, 0, 0);
-    sem_init(&output_display_mutex, 0, 0);
 }
 
 void testNN(){
     // screen output for monitoring progress
     displayImageFrame(7,5);
 
+    createSemaphores();
     createInputThreadAndSemaphores();
     createHiddenThreadAndSemaphores();
     createOutputThreadAndSemaphores();
